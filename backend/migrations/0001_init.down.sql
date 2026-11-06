@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS study_sessions;
+DROP TABLE IF EXISTS room_members;
+DROP TABLE IF EXISTS rooms;
+DROP TABLE IF EXISTS users;

@@ -22,12 +22,17 @@ export function Pomodoro({
   offsetMs,
   canControl,
   onUpdated,
+  track,
+  onTrackChange,
 }: {
   roomId: string;
   timer: Timer;
   offsetMs: number;
   canControl: boolean;
   onUpdated: (timer: Timer, serverNow: string) => void;
+  /** Whether focus phases count toward this user's stats (the toggle is hidden without onTrackChange). */
+  track?: boolean;
+  onTrackChange?: (on: boolean) => void;
 }) {
   const now = useNow(timer.running);
   // now is 0 during server rendering; fall back to the paused/idle view then.
@@ -139,6 +144,17 @@ export function Pomodoro({
           <p className="text-center text-xs text-muted-foreground">The room owner and moderators control this timer.</p>
         )}
         <ErrorText>{error}</ErrorText>
+        {onTrackChange && (
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={track ?? true}
+              onChange={(e) => onTrackChange(e.target.checked)}
+              className="size-3.5 accent-brand"
+            />
+            Count my focus time toward my stats
+          </label>
+        )}
       </CardBody>
     </Card>
   );

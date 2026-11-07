@@ -59,6 +59,19 @@ func (t Timer) Phase(now time.Time) (string, time.Duration) {
 	return "break", cycle - pos
 }
 
+// FocusEnd reports when the current focus phase ends. ok is false unless the
+// timer is running and in a focus phase (paused, idle and break don't count).
+func (t Timer) FocusEnd(now time.Time) (end time.Time, ok bool) {
+	if !t.Running {
+		return time.Time{}, false
+	}
+	phase, left := t.Phase(now)
+	if phase != "focus" {
+		return time.Time{}, false
+	}
+	return now.Add(left), true
+}
+
 // Apply returns the timer after an action at time now.
 //
 //	start  begin a new focus phase (from any state) with the given durations

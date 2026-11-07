@@ -81,3 +81,34 @@ func TestTimerValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestFocusEnd(t *testing.T) {
+	t0 := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
+	running := func(elapsed time.Duration) Timer {
+		start := t0.Add(-elapsed)
+		return Timer{FocusSeconds: 25 * 60, BreakSeconds: 5 * 60, Running: true, StartedAt: &start}
+	}
+	cases := []struct {
+		name    string
+		timer   Timer
+		wantOK  bool
+		wantEnd time.Duration // from t0
+	}{
+		{"idle", DefaultTimer(), false, 0},
+		{"paused", Timer{FocusSeconds: 1500, BreakSeconds: 300, PausedMs: 60_000}, false, 0},
+		{"start of focus", running(0), true, 25 * time.Minute},
+		{"10 minutes in", running(10 * time.Minute), true, 15 * time.Minute},
+		{"on break", running(27 * time.Minute), false, 0},
+		{"second round, 1 minute in", running(31 * time.Minute), true, 24 * time.Minute},
+	}
+	for _, c := range cases {
+		end, ok := c.timer.FocusEnd(t0)
+		if ok != c.wantOK {
+			t.Errorf("%s: ok = %v, want %v", c.name, ok, c.wantOK)
+			continue
+		}
+		if ok && !end.Equal(t0.Add(c.wantEnd)) {
+			t.Errorf("%s: end = %v, want %v", c.name, end.Sub(t0), c.wantEnd)
+		}
+	}
+}

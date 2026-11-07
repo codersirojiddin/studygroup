@@ -25,8 +25,10 @@ type Handlers struct {
 
 func writeErr(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, ErrAlreadyActive), errors.Is(err, ErrNoActive):
+	case errors.Is(err, ErrAlreadyActive), errors.Is(err, ErrNoActive), errors.Is(err, ErrNotFocusing):
 		httpx.Error(w, http.StatusConflict, err.Error())
+	case errors.Is(err, ErrBadSource):
+		httpx.Error(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, ErrNotMember):
 		httpx.Error(w, http.StatusForbidden, err.Error())
 	default:
@@ -35,11 +37,14 @@ func writeErr(w http.ResponseWriter, err error) {
 	}
 }
 
-// Start handles POST /api/sessions {"roomId"?: uuid, "topic"?: string}.
+// Start handles POST /api/sessions
+// {"roomId"?: uuid, "topic"?: string, "source"?: "manual"|"pomodoro"}.
+// source "pomodoro" needs roomId and a room timer in a focus phase.
 func (h *Handlers) Start(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		RoomID string `json:"roomId"`
 		Topic  string `json:"topic"`
+		Source string `json:"source"`
 	}
 	if !httpx.Decode(w, r, &in) {
 		return
@@ -54,7 +59,7 @@ func (h *Handlers) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, _ := users.FromContext(r.Context())
-	s, err := h.Store.Start(r.Context(), u.ID, in.RoomID, in.Topic)
+	s, err := h.Store.Start(r.Context(), u.ID, in.RoomID, in.Topic, in.Source)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -63,10 +68,16 @@ func (h *Handlers) Start(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, s)
 }
 
-// Stop handles POST /api/sessions/stop.
+// Stop handles POST /api/sessions/stop[?source=pomodoro]. With source, only a
+// session started that way is stopped.
 func (h *Handlers) Stop(w http.ResponseWriter, r *http.Request) {
+	source := r.URL.Query().Get("source")
+	if source != "" && source != SourceManual && source != SourcePomodoro {
+		httpx.Error(w, http.StatusBadRequest, ErrBadSource.Error())
+		return
+	}
 	u, _ := users.FromContext(r.Context())
-	s, err := h.Store.Stop(r.Context(), u.ID)
+	s, err := h.Store.Stop(r.Context(), u.ID, source)
 	if err != nil {
 		writeErr(w, err)
 		return

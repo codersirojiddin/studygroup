@@ -44,9 +44,13 @@ func New(o Options) (http.Handler, *realtime.Hub) {
 		},
 		ActiveStatus: sessionStore.ActiveStatus,
 		SaveChat:     chatStore.Save,
+		// Leaving a room ends the Pomodoro-driven session you had there.
+		PresenceLost: func(ctx context.Context, roomID, userID string) error {
+			return sessionStore.EndPomodoroFor(ctx, userID, roomID)
+		},
 	})
 
-	roomH := &rooms.Handlers{Store: roomStore, Notify: hub}
+	roomH := &rooms.Handlers{Store: roomStore, Notify: hub, Sessions: sessionStore}
 	sessionH := &sessions.Handlers{Store: sessionStore, Notify: hub}
 	chatH := &chat.Handlers{Store: chatStore, Rooms: roomStore, Notify: hub}
 	todoH := &todos.Handlers{Store: todos.NewStore(o.DB)}

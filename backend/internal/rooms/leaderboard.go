@@ -30,7 +30,7 @@ func (s *Store) Leaderboard(ctx context.Context, roomID string, since time.Time)
 	rows, err := s.db.Query(ctx, `
 		SELECT u.id::text, u.display_name,
 		       coalesce(sum(extract(epoch FROM
-		           least(coalesce(ss.ended_at, now()), ss.started_at + interval '12 hours') - ss.started_at)), 0)::bigint AS secs
+		           least(coalesce(ss.ended_at, now()), ss.started_at + interval '12 hours', coalesce(ss.ends_at, 'infinity'::timestamptz)) - ss.started_at)), 0)::bigint AS secs
 		FROM room_members m
 		JOIN users u ON u.id = m.user_id
 		LEFT JOIN study_sessions ss ON ss.user_id = m.user_id AND ss.room_id = m.room_id AND ss.started_at >= $2

@@ -28,6 +28,9 @@ type Deps struct {
 	ActiveStatus func(ctx context.Context, userID string) (*Status, error)
 	// SaveChat stores a chat message and returns its id and timestamp.
 	SaveChat func(ctx context.Context, roomID, userID, text string) (string, time.Time, error)
+	// PresenceLost is optional. It runs in its own goroutine after a user's last
+	// connection to a room closed and they did not come back right away.
+	PresenceLost func(ctx context.Context, roomID, userID string) error
 }
 
 type Hub struct {
@@ -123,6 +126,40 @@ func (h *Hub) leaveLocked(c *Client) {
 		h.broadcastLocked(old, h.presenceLocked(old))
 	}
 	c.room = ""
+	h.presenceLostLocked(old, c.UserID)
+}
+
+// userInRoomLocked reports whether userID has a connection in roomID. Caller holds h.mu.
+func (h *Hub) userInRoomLocked(roomID, userID string) bool {
+	for other := range h.rooms[roomID] {
+		if other.UserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+// presenceLostLocked notes that userID may have left roomID. Caller holds h.mu.
+func (h *Hub) presenceLostLocked(roomID, userID string) {
+	if h.deps.PresenceLost == nil || h.userInRoomLocked(roomID, userID) {
+		return
+	}
+	go func() {
+		// A quick reconnect (or a second tab) means the user is still here.
+		h.mu.Lock()
+		back := h.userInRoomLocked(roomID, userID)
+		h.mu.Unlock()
+		if back {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := h.deps.PresenceLost(ctx, roomID, userID); err != nil {
+			slog.Error("presence lost", "room", roomID, "user", userID, "err", err)
+			return
+		}
+		h.RefreshStatus(ctx, userID)
+	}()
 }
 
 // Join moves the client into roomID after checking membership.

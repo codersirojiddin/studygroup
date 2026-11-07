@@ -23,9 +23,16 @@ type Notifier interface {
 	TimerChanged(roomID string, timer any)
 }
 
+// SessionEnder ends the study sessions the room's Pomodoro started
+// (implemented by sessions.Store). It returns the affected user ids.
+type SessionEnder interface {
+	EndPomodoro(ctx context.Context, roomID string) ([]string, error)
+}
+
 type Handlers struct {
-	Store  *Store
-	Notify Notifier
+	Store    *Store
+	Notify   Notifier
+	Sessions SessionEnder // optional
 }
 
 type settingsInput struct {
@@ -399,6 +406,18 @@ func (h *Handlers) ControlTimer(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeErr(w, err)
 		return
+	}
+	// Everything except "resume" breaks the running focus phase (pause, skip,
+	// reset, restart), so people's Pomodoro-driven sessions end right now.
+	// After a resume, clients start new sessions for the new phase themselves.
+	if h.Sessions != nil && in.Action != "resume" {
+		ended, err := h.Sessions.EndPomodoro(r.Context(), id)
+		if err != nil {
+			slog.Error("end pomodoro sessions", "room", id, "err", err)
+		}
+		for _, uid := range ended {
+			h.Notify.RefreshStatus(r.Context(), uid)
+		}
 	}
 	h.Notify.TimerChanged(id, timer)
 	httpx.JSON(w, http.StatusOK, map[string]any{"timer": timer, "serverNow": time.Now().UTC()})

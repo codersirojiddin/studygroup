@@ -63,7 +63,11 @@ export function StudyTimer({
         icon={<TimerIcon />}
         title={roomId ? "Your session" : "Solo session"}
         description={roomId ? "Counts toward your stats and this room's leaderboard" : "Study on your own, outside any room"}
-        action={active && !elsewhere ? <Badge tone="brand">● Recording</Badge> : undefined}
+        action={
+          active && !elsewhere ? (
+            <Badge tone="brand">{active.source === "pomodoro" ? "● Auto · Pomodoro" : "● Recording"}</Badge>
+          ) : undefined
+        }
       />
       <CardBody className="flex flex-col gap-4">
         {active ? (
@@ -73,7 +77,7 @@ export function StudyTimer({
                 {formatClock(now ? secondsSince(active.startedAt, now) : active.seconds)}
               </div>
               <p className="mt-1 truncate text-sm text-muted-foreground">
-                {active.topic || "No topic"}
+                {active.topic || (active.source === "pomodoro" ? "Counting the room's focus time" : "No topic")}
                 {elsewhere && (
                   <>
                     {" · "}

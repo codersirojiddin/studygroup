@@ -11,6 +11,7 @@ import {
   KeyRound,
   Lock,
   Plus,
+  Share2,
   Trophy,
   Users,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 
 import { AppShell, PageHeader } from "@/components/app-header";
 import { DailyGoal } from "@/components/daily-goal";
+import { ShareDialog } from "@/components/share-dialog";
 import { StudyTimer } from "@/components/study-timer";
 import { Todos } from "@/components/todos";
 import {
@@ -54,6 +56,7 @@ export default function Dashboard() {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<"create" | "join" | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const now = useNow(false);
 
   const load = useCallback(async () => {
@@ -140,7 +143,12 @@ export default function Dashboard() {
         ) : (
           <Skeleton className="h-64" />
         )}
-        <StatsCard stats={stats} goalMinutes={me?.dailyGoalMinutes} className="lg:col-span-2" />
+        <StatsCard
+          stats={stats}
+          goalMinutes={me?.dailyGoalMinutes}
+          onShare={stats && me ? () => setShareOpen(true) : undefined}
+          className="lg:col-span-2"
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -157,6 +165,7 @@ export default function Dashboard() {
       <RoomsSection rooms={rooms} onCreate={() => setDialog("create")} />
       <RecentSessions sessions={recent} />
 
+      {stats && me && <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} stats={stats} me={me} />}
       <CreateRoomDialog open={dialog === "create"} onClose={() => setDialog(null)} />
       <JoinDialog open={dialog === "join"} onClose={() => setDialog(null)} />
     </AppShell>
@@ -175,13 +184,34 @@ function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: s
   );
 }
 
-function StatsCard({ stats, goalMinutes, className }: { stats: Stats | null; goalMinutes?: number; className?: string }) {
+function StatsCard({
+  stats,
+  goalMinutes,
+  onShare,
+  className,
+}: {
+  stats: Stats | null;
+  goalMinutes?: number;
+  onShare?: () => void;
+  className?: string;
+}) {
   if (!stats) return <Skeleton className={`h-64 ${className}`} />;
   const goal = (goalMinutes ?? 0) * 60;
   const max = Math.max(goal, 1, ...stats.last7Days.map((d) => d.seconds));
   return (
     <Card className={className}>
-      <CardHeader icon={<BarChart3 />} title="Your progress" description="Last 7 days" />
+      <CardHeader
+        icon={<BarChart3 />}
+        title="Your progress"
+        description="Last 7 days"
+        action={
+          onShare && (
+            <Button variant="secondary" size="sm" onClick={onShare} aria-label="Share your progress">
+              <Share2 /> <span className="hidden sm:inline">Share</span>
+            </Button>
+          )
+        }
+      />
       <CardBody className="flex flex-col gap-6">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Stat icon={<Clock />} label="Today" value={formatDuration(stats.todaySeconds)} />

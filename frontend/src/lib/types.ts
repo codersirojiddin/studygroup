@@ -56,6 +56,8 @@ export type Session = {
   startedAt: string;
   endedAt: string | null;
   seconds: number;
+  /** "pomodoro" = started automatically by the room timer's focus phase. */
+  source: "manual" | "pomodoro";
 };
 
 export type Stats = {

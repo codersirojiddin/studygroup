@@ -27,6 +27,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { AppShell } from "@/components/app-header";
 import { Pomodoro } from "@/components/pomodoro";
 import { StudyTimer } from "@/components/study-timer";
+import { useAutoTrack, useStoredBool } from "@/lib/use-auto-track";
 import {
   Alert,
   Avatar,
@@ -211,6 +212,16 @@ function MemberView({
   const [dialog, setDialog] = useState<"invite" | "settings" | null>(null);
   const chat = useChatHistory(room.id);
   const [boardVersion, setBoardVersion] = useState(0);
+  const [trackFocus, setTrackFocus] = useStoredBool("study-online:track-focus", true);
+  const bumpBoard = useCallback(() => setBoardVersion((v) => v + 1), []);
+  const { dismiss } = useAutoTrack({
+    roomId: room.id,
+    clock,
+    active,
+    setActive,
+    enabled: trackFocus,
+    onChange: bumpBoard,
+  });
 
   const live = useRoomRealtime(room.id, {
     onEvent: (e: RoomEvent) => {
@@ -224,7 +235,13 @@ function MemberView({
     onTimer: applyTimer,
     onChat: chat.add,
     onChatDeleted: chat.remove,
-    onConnected: chat.refresh,
+    onConnected: () => {
+      chat.refresh();
+      // The server ends Pomodoro sessions when a connection drops; pick up the real state.
+      api<Session | null>("/api/sessions/active")
+        .then(setActive)
+        .catch(() => {});
+    },
   });
 
   return (
@@ -245,6 +262,8 @@ function MemberView({
                 offsetMs={clock.offsetMs}
                 canControl={canEdit(room.myRole)}
                 onUpdated={applyTimer}
+                track={trackFocus}
+                onTrackChange={setTrackFocus}
               />
             ) : (
               <Skeleton className="h-80" />
@@ -253,6 +272,8 @@ function MemberView({
               active={active}
               roomId={room.id}
               onChange={(s) => {
+                // Stopping an automatic session by hand means "not this focus phase".
+                if (s === null && active?.source === "pomodoro") dismiss();
                 setActive(s);
                 setBoardVersion((v) => v + 1);
               }}

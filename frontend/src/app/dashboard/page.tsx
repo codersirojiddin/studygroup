@@ -88,9 +88,19 @@ export default function Dashboard() {
         eyebrow={date?.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) ?? " "}
         title={me && date ? `${greeting(date)}, ${me.displayName.split(" ")[0]}` : <Skeleton className="h-9 w-72" />}
         description={
-          <Link href="/account/settings" className="text-sm underline-offset-4 hover:text-foreground hover:underline">
-            Change your display name
-          </Link>
+          <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <Link href="/account/settings" className="underline-offset-4 hover:text-foreground hover:underline">
+              Change your display name
+            </Link>
+            {me && (
+              <Link
+                href={me.username ? `/u/${me.username}` : "/settings/profile"}
+                className="underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {me.username ? "View your profile" : "Choose a username"}
+              </Link>
+            )}
+          </span>
         }
         actions={
           <>
@@ -104,6 +114,25 @@ export default function Dashboard() {
         }
       />
       <Alert tone="danger">{error && `Couldn't load your data: ${error}`}</Alert>
+
+      {me && !me.username && (
+        <Card>
+          <CardBody className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium">Claim your username</p>
+              <p className="text-sm text-muted-foreground">
+                Get a public profile with your study heatmap, and let friends find you.
+              </p>
+            </div>
+            <Link
+              href="/settings/profile"
+              className="inline-flex h-9 items-center rounded-lg bg-brand px-4 text-sm font-medium text-brand-foreground shadow-sm hover:opacity-90"
+            >
+              Choose username
+            </Link>
+          </CardBody>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {stats && me ? (
@@ -245,7 +274,7 @@ function RoomCard({ room }: { room: Room }) {
   return (
     <Link
       href={`/rooms/${room.id}`}
-      className="group flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className="group flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="line-clamp-1 font-semibold">{room.name}</h3>

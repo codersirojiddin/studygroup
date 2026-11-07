@@ -9,6 +9,7 @@ import (
 
 	"github.com/study-online/backend/internal/chat"
 	"github.com/study-online/backend/internal/httpx"
+	"github.com/study-online/backend/internal/profiles"
 	"github.com/study-online/backend/internal/realtime"
 	"github.com/study-online/backend/internal/rooms"
 	"github.com/study-online/backend/internal/sessions"
@@ -49,6 +50,7 @@ func New(o Options) (http.Handler, *realtime.Hub) {
 	sessionH := &sessions.Handlers{Store: sessionStore, Notify: hub}
 	chatH := &chat.Handlers{Store: chatStore, Rooms: roomStore, Notify: hub}
 	todoH := &todos.Handlers{Store: todos.NewStore(o.DB)}
+	profileH := &profiles.Handlers{Users: userStore, Sessions: sessionStore}
 	wsH := &ws.Handler{Tickets: o.Tickets, Users: userStore, Hub: hub, AppOrigin: o.AppURL}
 
 	// protected wraps a handler with authentication and app-user loading.
@@ -92,6 +94,11 @@ func New(o Options) (http.Handler, *realtime.Hub) {
 	mux.Handle("GET /api/sessions/stats", protected(sessionH.Stats))
 
 	mux.Handle("PUT /api/me/goal", protected(userStore.SetGoal))
+	mux.Handle("PATCH /api/me/profile", protected(userStore.SetProfile))
+	mux.Handle("GET /api/users/check", protected(userStore.CheckUsername))
+	mux.Handle("GET /api/users/search", protected(userStore.Search))
+	// Public profiles are readable without signing in.
+	mux.HandleFunc("GET /api/profiles/{username}", profileH.Get)
 	mux.Handle("GET /api/todos", protected(todoH.List))
 	mux.Handle("POST /api/todos", protected(todoH.Create))
 	mux.Handle("PATCH /api/todos/{id}", protected(todoH.Update))

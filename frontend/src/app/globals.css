@@ -10,11 +10,11 @@
 :root {
   --radius: 0.75rem;
 
-  /* 60%: iliq qog'oz fon */
+  /* 60%: warm paper background */
   --background: oklch(0.962 0.014 88);
   --foreground: oklch(0.25 0.015 75);
 
-  /* 30%: kartalar fondan yorqinroq, input/ikonka foni biroz to'qroq */
+  /* 30%: cards sit lighter than the page; inputs and chips a step darker */
   --card: oklch(0.988 0.008 90);
   --card-foreground: var(--foreground);
   --popover: oklch(0.988 0.008 90);
@@ -26,7 +26,7 @@
   --accent: oklch(0.93 0.022 87);
   --accent-foreground: var(--foreground);
 
-  /* "New room" kabi primary tugmalar: sovuq qora o'rniga iliq jigarrang */
+  /* Primary buttons: warm ink instead of cold black */
   --primary: oklch(0.25 0.015 75);
   --primary-foreground: oklch(0.985 0.008 90);
 
@@ -36,24 +36,23 @@
   --input: oklch(0.87 0.028 85);
   --ring: oklch(0.52 0.095 160);
 
-  /* 10%: sage-o'rmon yashili (oq matn bilan kontrast ~5:1) */
+  /* 10%: calm sage-forest green (white text on it is ~5:1) */
   --brand: oklch(0.52 0.095 160);
   --brand-foreground: oklch(0.99 0 0);
-  --brand-soft: oklch(0.925 0.04 155);
+  --brand-soft: oklch(0.95 0.025 150);
   --focus: var(--brand);
-  --break: oklch(0.58 0.09 235);
-  --break-soft: oklch(0.93 0.03 235);
+  --break: oklch(0.5 0.09 235);
+  --break-soft: oklch(0.945 0.025 235);
   --warning-soft: oklch(0.95 0.06 88);
   --warning-foreground: oklch(0.45 0.09 70);
 
-  /* iliq soya (kartalar chiziqsiz ham ajralib tursin) */
+  /* Warm-tinted shadow so cards lift off the paper without a hard border */
   --card-shadow:
     0 1px 2px oklch(0.4 0.05 70 / 0.07),
     0 14px 30px -18px oklch(0.4 0.05 70 / 0.25);
 }
 
 :root.dark {
-  --card-shadow: none;
   --background: oklch(0.155 0.006 265);
   --foreground: oklch(0.96 0.003 265);
   --card: oklch(0.195 0.007 265);
@@ -81,11 +80,11 @@
   --break-soft: oklch(0.28 0.05 240);
   --warning-soft: oklch(0.3 0.05 85);
   --warning-foreground: oklch(0.85 0.1 85);
+
+  --card-shadow: none;
 }
 
 @theme inline {
-    --shadow-card: var(--card-shadow);
-  --font-display: var(--font-fraunces);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
@@ -93,6 +92,8 @@
   --color-break-soft: var(--break-soft);
   --color-warning-soft: var(--warning-soft);
   --color-warning-foreground: var(--warning-foreground);
+  --shadow-card: var(--card-shadow);
+  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -107,13 +108,13 @@
   html.dark {
     color-scheme: dark;
   }
-   body {
+  body {
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  /* stol lampasi yorug'ligi: faqat light temada, juda yengil */
+  /* Desk-lamp glow at the top of the page, light theme only */
   html:not(.dark) body {
     background-image: radial-gradient(
       70% 45% at 50% -5%,
@@ -124,15 +125,6 @@
   }
   ::selection {
     background: var(--brand-soft);
-  }
-   /* kartalarga soya: tez variant, keyin Card komponentiga ko'chiramiz */
-  html:not(.dark) .bg-card {
-    box-shadow: var(--shadow-card);
-  }
-   h1 {
-    font-family: var(--font-display), ui-serif, Georgia, serif;
-    font-weight: 600;
-    letter-spacing: -0.01em;
   }
   :focus-visible {
     outline: 2px solid var(--ring);

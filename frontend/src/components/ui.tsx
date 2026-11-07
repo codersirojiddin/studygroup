@@ -103,7 +103,7 @@ export function Field({
 /* ---------- Surfaces ---------- */
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <section className={cx("rounded-xl border bg-card text-card-foreground shadow-xs", className)}>{children}</section>;
+  return <section className={cx("rounded-xl border bg-card text-card-foreground shadow-card", className)}>{children}</section>;
 }
 
 export function CardHeader({
@@ -232,11 +232,11 @@ export function Avatar({
 }: {
   name: string;
   seed?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   status?: "online" | "studying" | "offline";
 }) {
   const h = hue(seed ?? name);
-  const dims = { sm: "size-7 text-[10px]", md: "size-9 text-xs", lg: "size-11 text-sm" }[size];
+  const dims = { sm: "size-7 text-[10px]", md: "size-9 text-xs", lg: "size-11 text-sm", xl: "size-16 text-xl" }[size];
   return (
     <span className="relative inline-flex shrink-0">
       <span
@@ -250,7 +250,7 @@ export function Avatar({
         <span
           className={cx(
             "absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2 border-card",
-            status === "studying" ? "bg-brand" : status === "online" ? "bg-sky-500" : "bg-muted-foreground/40",
+            status === "studying" ? "bg-brand" : status === "online" ? "bg-break" : "bg-muted-foreground/40",
           )}
           title={status}
         />

@@ -8,6 +8,29 @@ export type Me = {
   displayName: string;
   dailyGoalMinutes: number;
   createdAt: string;
+  username: string | null;
+  bio: string;
+  profilePublic: boolean;
+};
+
+export type UserSummary = { username: string; displayName: string };
+
+export type Activity = {
+  /** Days with study time inside the last year, oldest first. */
+  days: { date: string; seconds: number }[];
+  activeDays: number;
+  totalSeconds: number;
+  sessionCount: number;
+  streakDays: number;
+  longestStreakDays: number;
+};
+
+export type Profile = {
+  username: string;
+  displayName: string;
+  bio: string;
+  joinedAt: string;
+  activity: Activity;
 };
 
 export type Room = {

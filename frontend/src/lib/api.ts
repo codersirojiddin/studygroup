@@ -58,6 +58,16 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
+/** Calls a public Go API endpoint without credentials, so it works signed out. */
+export async function publicApi<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body.error ?? res.statusText);
+  }
+  return res.json();
+}
+
 /**
  * Opens an authenticated WebSocket. Browsers can't send an Authorization
  * header on the handshake, so trade the JWT for a single-use ticket first.

@@ -23,17 +23,24 @@ type User struct {
 	// DailyGoalMinutes is the user's study target per day.
 	DailyGoalMinutes int       `json:"dailyGoalMinutes"`
 	CreatedAt        time.Time `json:"createdAt"`
+	// Username is the public handle; nil until the user claims one.
+	Username *string `json:"username"`
+	Bio      string  `json:"bio"`
+	// ProfilePublic controls whether /u/{username} and search show this user.
+	ProfilePublic bool `json:"profilePublic"`
 }
 
 type Store struct{ db *pgxpool.Pool }
 
 func NewStore(db *pgxpool.Pool) *Store { return &Store{db: db} }
 
-const userCols = `id::text, auth_user_id, email, display_name, daily_goal_minutes, created_at`
+const userCols = `id::text, auth_user_id, email, display_name, daily_goal_minutes, created_at,
+	username, bio, profile_public`
 
 func scan(row pgx.Row) (*User, error) {
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.AuthUserID, &u.Email, &u.DisplayName, &u.DailyGoalMinutes, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.AuthUserID, &u.Email, &u.DisplayName, &u.DailyGoalMinutes, &u.CreatedAt,
+		&u.Username, &u.Bio, &u.ProfilePublic); err != nil {
 		return nil, err
 	}
 	return u, nil

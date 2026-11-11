@@ -1,7 +1,5 @@
 // Shapes returned by the Go API.
 
-import type { Socials } from "@/lib/socials";
-
 export type Role = "owner" | "moderator" | "member";
 
 export type Me = {
@@ -13,7 +11,6 @@ export type Me = {
   username: string | null;
   bio: string;
   profilePublic: boolean;
-  socials: Socials;
 };
 
 export type UserSummary = { username: string; displayName: string };
@@ -32,7 +29,6 @@ export type Profile = {
   username: string;
   displayName: string;
   bio: string;
-  socials: Socials;
   joinedAt: string;
   activity: Activity;
 };

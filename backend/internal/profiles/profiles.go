@@ -22,7 +22,6 @@ type Profile struct {
 	Username    string            `json:"username"`
 	DisplayName string            `json:"displayName"`
 	Bio         string            `json:"bio"`
-	Socials     map[string]string `json:"socials"`
 	JoinedAt    time.Time         `json:"joinedAt"`
 	Activity    sessions.Activity `json:"activity"`
 }
@@ -59,7 +58,6 @@ func (h *Handlers) Get(w http.ResponseWriter, r *http.Request) {
 		Username:    *u.Username,
 		DisplayName: u.DisplayName,
 		Bio:         u.Bio,
-		Socials:     u.Socials,
 		JoinedAt:    u.CreatedAt,
 		Activity:    *act,
 	})

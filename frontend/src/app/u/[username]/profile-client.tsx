@@ -6,7 +6,6 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { AppShell, PublicShell } from "@/components/app-header";
 import { Heatmap } from "@/components/heatmap";
-import { SocialLinks } from "@/components/social-links";
 import { Alert, Avatar, Card, CardBody, CardHeader, EmptyState, Skeleton } from "@/components/ui";
 import { api, ApiError, publicApi } from "@/lib/api";
 import { formatDuration, timeZone } from "@/lib/format";
@@ -91,7 +90,6 @@ export function ProfileClient({ username, signedIn }: { username: string; signed
               </h1>
               <p className="text-muted-foreground">@{profile.username}</p>
               {profile.bio && <p className="mt-2 max-w-prose text-pretty">{profile.bio}</p>}
-              <SocialLinks socials={profile.socials} />
               <p className="mt-2 text-xs text-muted-foreground">
                 Joined {new Date(profile.joinedAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })}
               </p>

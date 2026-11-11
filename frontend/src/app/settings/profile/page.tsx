@@ -5,17 +5,12 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { AppShell, PageHeader } from "@/components/app-header";
-import { SocialIcon } from "@/components/social-icons";
 import { Alert, Button, Card, CardBody, ErrorText, Field, Input, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
-import { SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/socials";
 import type { Me } from "@/lib/types";
 
 const BIO_MAX = 160;
 const handleRe = /^[a-z0-9_]{3,20}$/;
-
-type SocialInputs = Record<SocialPlatform, string>;
-const noSocials: SocialInputs = { instagram: "", twitter: "", youtube: "", tiktok: "", telegram: "" };
 
 type Availability = { name: string; available: boolean; reason?: string };
 
@@ -23,7 +18,6 @@ export default function ProfileSettings() {
   const [me, setMe] = useState<Me | null>(null);
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [socials, setSocials] = useState<SocialInputs>(noSocials);
   const [isPublic, setIsPublic] = useState(true);
   const [check, setCheck] = useState<Availability | null>(null);
   const [saving, setSaving] = useState(false);
@@ -36,7 +30,6 @@ export default function ProfileSettings() {
         setMe(m);
         setUsername(m.username ?? "");
         setBio(m.bio);
-        setSocials({ ...noSocials, ...m.socials });
         setIsPublic(m.profilePublic);
       })
       .catch((e: Error) => setError(e.message));
@@ -66,10 +59,8 @@ export default function ProfileSettings() {
   const checking = handleChanged && !formatError && !result;
   const taken = handleChanged && result !== null && !result.available;
 
-  const socialsChanged =
-    me !== null && SOCIAL_PLATFORMS.some((p) => socials[p.id].trim() !== (me.socials?.[p.id] ?? ""));
   const dirty =
-    me !== null && (handleChanged || bio.trim() !== me.bio || isPublic !== me.profilePublic || socialsChanged);
+    me !== null && (handleChanged || bio.trim() !== me.bio || isPublic !== me.profilePublic);
   const canSave = dirty && !formatError && !taken && !checking && !saving;
 
   async function save(e: FormEvent) {
@@ -85,16 +76,11 @@ export default function ProfileSettings() {
           username: handleChanged ? name : undefined,
           bio: bio.trim(),
           profilePublic: isPublic,
-          // Replaces all links; the server turns pasted links into plain usernames.
-          socials: socialsChanged
-            ? Object.fromEntries(SOCIAL_PLATFORMS.map((p) => [p.id, socials[p.id].trim()]))
-            : undefined,
         }),
       });
       setMe(updated);
       setUsername(updated.username ?? "");
       setBio(updated.bio);
-      setSocials({ ...noSocials, ...updated.socials });
       setIsPublic(updated.profilePublic);
       setSaved(true);
     } catch (err) {
@@ -164,35 +150,6 @@ export default function ProfileSettings() {
                   placeholder="What are you studying for?"
                 />
               </Field>
-
-              <fieldset className="flex min-w-0 flex-col gap-3 border-0 p-0">
-                <legend className="text-sm font-medium">Social links</legend>
-                <p className="text-xs text-muted-foreground">
-                  Shown on your public profile so people can find you elsewhere. Paste a link or just your username.
-                </p>
-                {SOCIAL_PLATFORMS.map((p) => (
-                  <div key={p.id} className="relative">
-                    <SocialIcon
-                      platform={p.id}
-                      className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                    />
-                    <Input
-                      aria-label={p.label}
-                      value={socials[p.id]}
-                      onChange={(e) => {
-                        setSocials((s) => ({ ...s, [p.id]: e.target.value }));
-                        setSaved(false);
-                      }}
-                      placeholder={`${p.label}: ${p.placeholder}`}
-                      className="pl-9"
-                      maxLength={200}
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                    />
-                  </div>
-                ))}
-              </fieldset>
 
               <label className="flex items-start gap-3">
                 <input

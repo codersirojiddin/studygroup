@@ -2,7 +2,6 @@ package users
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -59,15 +58,12 @@ func (s *Store) ByUsername(ctx context.Context, username string) (*User, error) 
 }
 
 // SetProfile handles PATCH /api/me/profile. Every field is optional; omitted
-// fields stay unchanged:
-// {"username"?: string, "bio"?: string, "profilePublic"?: bool, "socials"?: {platform: handle-or-link}}.
-// When socials is sent it replaces all links; an empty value removes that link.
+// fields stay unchanged: {"username"?: string, "bio"?: string, "profilePublic"?: bool}.
 func (s *Store) SetProfile(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Username      *string           `json:"username"`
-		Bio           *string           `json:"bio"`
-		ProfilePublic *bool             `json:"profilePublic"`
-		Socials       map[string]string `json:"socials"`
+		Username      *string `json:"username"`
+		Bio           *string `json:"bio"`
+		ProfilePublic *bool   `json:"profilePublic"`
 	}
 	if !httpx.Decode(w, r, &in) {
 		return
@@ -89,31 +85,15 @@ func (s *Store) SetProfile(w http.ResponseWriter, r *http.Request) {
 		in.Bio = &bio
 	}
 
-	var socials any // stays nil (= unchanged) unless the client sent socials
-	if in.Socials != nil {
-		norm, err := NormalizeSocials(in.Socials)
-		if err != nil {
-			httpx.Error(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		b, err := json.Marshal(norm)
-		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "could not save profile")
-			return
-		}
-		socials = string(b)
-	}
-
 	cur, _ := FromContext(r.Context())
 	u, err := scan(s.db.QueryRow(r.Context(), `
 		UPDATE users SET
 			username       = coalesce($2::text, username),
 			bio            = coalesce($3::text, bio),
 			profile_public = coalesce($4::boolean, profile_public),
-			socials        = coalesce($5::jsonb, socials),
 			updated_at     = now()
 		WHERE id = $1 RETURNING `+userCols,
-		cur.ID, in.Username, in.Bio, in.ProfilePublic, socials))
+		cur.ID, in.Username, in.Bio, in.ProfilePublic))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		httpx.Error(w, http.StatusConflict, ErrUsernameTaken.Error())

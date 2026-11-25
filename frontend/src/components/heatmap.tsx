@@ -84,22 +84,23 @@ export function Heatmap({
     if (el) el.scrollLeft = el.scrollWidth;
   }, []);
 
-  const cells = useMemo(
-    () =>
-      grid.cells.map((date, i) => {
-        if (!date) return <div key={i} className="invisible" style={{ width: CELL, height: CELL }} />;
-        const secs = byDate.get(date) ?? 0;
-        return (
-          <div
-            key={i}
-            className={cx("rounded-[3px]", LEVELS[level(secs)])}
-            style={{ width: CELL, height: CELL }}
-            title={`${secs > 0 ? formatDuration(secs) : "No study"} · ${dayLabel(date)}`}
-          />
-        );
-      }),
-    [grid, byDate],
-  );
+  const cells = useMemo(() => {
+    const today = now ? ymd(new Date(now)) : "";
+    return grid.cells.map((date, i) => {
+      if (!date) return <div key={i} className="invisible" style={{ width: CELL, height: CELL }} />;
+      const secs = byDate.get(date) ?? 0;
+      // Cells pop in as a diagonal wave from the top-left; cells are stored column by column.
+      const wave = Math.floor(i / 7) * 9 + (i % 7) * 12;
+      return (
+        <div
+          key={i}
+          className={cx("animate-cell rounded-[3px]", LEVELS[level(secs)], date === today && "animate-today ring-1 ring-brand/70")}
+          style={{ width: CELL, height: CELL, animationDelay: `${wave}ms` }}
+          title={`${secs > 0 ? formatDuration(secs) : "No study"} · ${dayLabel(date)}`}
+        />
+      );
+    });
+  }, [grid, byDate, now]);
 
   return (
     <div>

@@ -49,7 +49,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-lg font-medium whitespace-nowrap transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4",
+        "inline-flex shrink-0 items-center justify-center rounded-lg font-medium whitespace-nowrap transition-all active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:active:scale-100 [&_svg]:size-4",
         variants[variant],
         sizes[size],
         className,
@@ -247,13 +247,17 @@ export function Avatar({
         {initials(name)}
       </span>
       {status && (
-        <span
-          className={cx(
-            "absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2 border-card",
-            status === "studying" ? "bg-brand" : status === "online" ? "bg-break" : "bg-muted-foreground/40",
+        <span className="absolute -right-0.5 -bottom-0.5 size-3" title={status}>
+          {status === "studying" && (
+            <span className="absolute inset-0 animate-ping rounded-full bg-brand opacity-60 motion-reduce:animate-none" aria-hidden />
           )}
-          title={status}
-        />
+          <span
+            className={cx(
+              "absolute inset-0 rounded-full border-2 border-card",
+              status === "studying" ? "bg-brand" : status === "online" ? "bg-break" : "bg-muted-foreground/40",
+            )}
+          />
+        </span>
       )}
     </span>
   );
@@ -266,17 +270,39 @@ export function ProgressRing({
   size = 180,
   stroke = 10,
   color = "var(--brand)",
+  dot = false,
+  animateIn = false,
   children,
 }: {
   value: number; // 0..1
   size?: number;
   stroke?: number;
   color?: string;
+  /** A small bead at the leading end of the arc, gliding along as it grows. */
+  dot?: boolean;
+  /** Fill from empty on first show, easing out, instead of starting full. For rings that show a result. */
+  animateIn?: boolean;
   children?: ReactNode;
 }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.min(1, Math.max(0, value));
+  // With animateIn the first paint is empty, then the value arrives and the CSS transition fills the ring.
+  const [armed, setArmed] = useState(!animateIn);
+  useEffect(() => {
+    if (!animateIn) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setArmed(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [animateIn]);
+  const shown = armed ? v : 0;
+  // Running timers tick once a second, so they move linearly; result rings ease out.
+  const move = animateIn ? "1.2s cubic-bezier(0.2, 0.8, 0.2, 1)" : "1s linear";
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
@@ -290,9 +316,20 @@ export function ProgressRing({
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
-          strokeDashoffset={c * (1 - v)}
-          style={{ transition: "stroke-dashoffset 1s linear, stroke 0.3s" }}
+          strokeDashoffset={c * (1 - shown)}
+          style={{ transition: `stroke-dashoffset ${move}, stroke 0.3s` }}
         />
+        {dot && shown > 0.005 && (
+          <g
+            style={{
+              transformOrigin: `${size / 2}px ${size / 2}px`,
+              transform: `rotate(${shown * 360}deg)`,
+              transition: `transform ${move}`,
+            }}
+          >
+            <circle cx={size / 2 + r} cy={size / 2} r={stroke * 0.36} fill="var(--card)" stroke={color} strokeWidth={stroke * 0.22} />
+          </g>
+        )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
     </div>

@@ -15,7 +15,6 @@ import {
   Settings,
   Shield,
   Trash2,
-  Trophy,
   UserMinus,
   UserPlus,
   Users,
@@ -25,6 +24,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AppShell } from "@/components/app-header";
+import { CheerFloaters, ReactionPicker, useCheers, type Cheer } from "@/components/cheers";
+import { Leaderboard } from "@/components/leaderboard";
 import { Pomodoro } from "@/components/pomodoro";
 import { StudyTimer } from "@/components/study-timer";
 import { useAutoTrack, useStoredBool } from "@/lib/use-auto-track";
@@ -48,9 +49,11 @@ import {
   useConfirm,
 } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { formatClock, formatDuration, secondsSince, timeZone } from "@/lib/format";
-import type { ChatMessage, LeaderboardEntry, Me, Member, PresenceMember, Role, Room, Session, Timer } from "@/lib/types";
+import { formatClock, secondsSince } from "@/lib/format";
+import type { ChatMessage, Me, Member, PresenceMember, Role, Room, Session, Timer } from "@/lib/types";
 import { useNow } from "@/lib/use-now";
+import type { ReactionName } from "@/lib/reactions";
+import { useFlip } from "@/lib/use-flip";
 import { useRoomRealtime, type RoomEvent } from "@/lib/use-room-realtime";
 
 const canEdit = (role?: Role) => role === "owner" || role === "moderator";
@@ -223,6 +226,8 @@ function MemberView({
     onChange: bumpBoard,
   });
 
+  const { cheers, push: pushCheer } = useCheers();
+
   const live = useRoomRealtime(room.id, {
     onEvent: (e: RoomEvent) => {
       if (e === "kicked" || e === "room_deleted") {
@@ -235,6 +240,7 @@ function MemberView({
     onTimer: applyTimer,
     onChat: chat.add,
     onChatDeleted: chat.remove,
+    onReaction: pushCheer,
     onConnected: () => {
       chat.refresh();
       // The server ends Pomodoro sessions when a connection drops; pick up the real state.
@@ -243,6 +249,20 @@ function MemberView({
         .catch(() => {});
     },
   });
+
+  // Tapping fast is fine, but the server allows one cheer per 200ms; drop the extras here
+  // instead of showing "too fast" errors.
+  const lastCheer = useRef(0);
+  const { sendReaction } = live;
+  const react = useCallback(
+    (to: string, emoji: ReactionName) => {
+      const now = Date.now();
+      if (now - lastCheer.current < 220) return;
+      lastCheer.current = now;
+      sendReaction(to, emoji);
+    },
+    [sendReaction],
+  );
 
   return (
     <>
@@ -289,7 +309,17 @@ function MemberView({
           />
         </div>
         <div className="flex flex-col gap-4">
-          <People room={room} members={members} me={me} presence={live.presence} connected={live.connected} onChange={reload} />
+          <People
+            room={room}
+            members={members}
+            me={me}
+            presence={live.presence}
+            arrivals={live.arrivals}
+            cheers={cheers}
+            onReact={react}
+            connected={live.connected}
+            onChange={reload}
+          />
           <Leaderboard roomId={room.id} myId={me.id} version={boardVersion} />
         </div>
       </div>
@@ -383,6 +413,9 @@ function People({
   members,
   me,
   presence,
+  arrivals,
+  cheers,
+  onReact,
   connected,
   onChange,
 }: {
@@ -390,11 +423,19 @@ function People({
   members: Member[];
   me: Me;
   presence: PresenceMember[];
+  /** Times each user newly appeared in the room: bumps their avatar. */
+  arrivals: Record<string, number>;
+  cheers: Cheer[];
+  onReact: (to: string, emoji: ReactionName) => void;
   connected: boolean;
   onChange: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  const list = useRef<HTMLUListElement>(null);
+  useFlip(list); // members glide to their new place as they come online or start studying
+  // The latest cheer sent to me, for screen readers.
+  const cheerForMe = [...cheers].reverse().find((c) => c.to === me.id);
   const { confirm, dialog } = useConfirm();
   const live = new Map(presence.map((p) => [p.userId, p]));
   const now = useNow(presence.some((p) => p.studying));
@@ -447,15 +488,17 @@ function People({
         }
       />
       <CardBody className="pt-3">
-        <ul className="-mx-2 flex flex-col">
+        <ul ref={list} className="-mx-2 flex flex-col">
           {sorted.map((m) => {
             const p = live.get(m.userId);
             const self = m.userId === me.id;
             const canKick = !self && (myRole === "owner" || (myRole === "moderator" && m.role === "member"));
             const canPromote = !self && myRole === "owner" && m.role !== "owner";
             return (
-              <li key={m.userId} className="relative flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent">
-                <Avatar name={m.displayName} seed={m.userId} status={p?.studying ? "studying" : p ? "online" : "offline"} />
+              <li key={m.userId} data-flip={m.userId} className="relative flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent">
+                <span key={arrivals[m.userId] ?? 0} className={cx("inline-flex", (arrivals[m.userId] ?? 0) > 0 && "animate-join")}>
+                  <Avatar name={m.displayName} seed={m.userId} status={p?.studying ? "studying" : p ? "online" : "offline"} />
+                </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className={cx("truncate text-sm font-medium", !p && "text-muted-foreground")}>{m.displayName}</span>
@@ -476,6 +519,7 @@ function People({
                     )}
                   </div>
                 </div>
+                {p && !self && <ReactionPicker name={m.displayName} onPick={(emoji) => onReact(m.userId, emoji)} />}
                 {(canKick || canPromote) && (
                   <div className="relative">
                     <Button
@@ -506,10 +550,14 @@ function People({
                     )}
                   </div>
                 )}
+                <CheerFloaters cheers={cheers} userId={m.userId} meId={me.id} />
               </li>
             );
           })}
         </ul>
+        <p className="sr-only" aria-live="polite">
+          {cheerForMe && `${cheerForMe.fromName} cheered you on`}
+        </p>
         <ErrorText>{error}</ErrorText>
       </CardBody>
       {dialog}
@@ -528,68 +576,6 @@ function MenuItem({ children, onClick, danger }: { children: React.ReactNode; on
     >
       {children}
     </button>
-  );
-}
-
-/* ---------- Leaderboard ---------- */
-
-function Leaderboard({ roomId, myId, version }: { roomId: string; myId: string; version: number }) {
-  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = () =>
-      api<{ entries: LeaderboardEntry[] }>(`/api/rooms/${roomId}/leaderboard?tz=${encodeURIComponent(timeZone())}`)
-        .then((r) => !cancelled && setEntries(r.entries))
-        .catch(() => {});
-    load();
-    // Running sessions keep adding time, so refresh periodically.
-    const id = setInterval(load, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [roomId, version]);
-
-  const top = entries?.[0]?.seconds ?? 0;
-  const medals = ["🥇", "🥈", "🥉"];
-
-  return (
-    <Card>
-      <CardHeader icon={<Trophy />} title="This week" description="Focus time in this room since Monday" />
-      <CardBody className="pt-3">
-        {!entries ? (
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-8" />
-            <Skeleton className="h-8" />
-          </div>
-        ) : top === 0 ? (
-          <p className="py-3 text-center text-sm text-muted-foreground">No study time yet this week. Be the first!</p>
-        ) : (
-          <ol className="flex flex-col gap-3">
-            {entries.slice(0, 10).map((e, i) => (
-              <li key={e.userId} className="flex items-center gap-3">
-                <span className="w-6 text-center text-sm font-medium text-muted-foreground tabular-nums">
-                  {e.seconds > 0 && i < 3 ? medals[i] : i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className={cx("truncate text-sm", e.userId === myId && "font-semibold")}>
-                      {e.displayName}
-                      {e.userId === myId && <span className="font-normal text-muted-foreground"> (you)</span>}
-                    </span>
-                    <span className="shrink-0 text-xs font-medium tabular-nums">{formatDuration(e.seconds)}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-brand" style={{ width: `${(e.seconds / top) * 100}%` }} />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </CardBody>
-    </Card>
   );
 }
 

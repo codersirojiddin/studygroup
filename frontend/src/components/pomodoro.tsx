@@ -3,7 +3,8 @@
 import { Pause, Play, RotateCcw, SkipForward, Timer as TimerIcon } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { Badge, Button, Card, CardBody, CardHeader, ErrorText, Field, Input, ProgressRing } from "@/components/ui";
+import { ClockText } from "@/components/clock-text";
+import { Badge, Button, Card, CardBody, CardHeader, cx, ErrorText, Field, Input, ProgressRing } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formatClock } from "@/lib/format";
 import { chime, timerView, type Phase } from "@/lib/pomodoro";
@@ -83,6 +84,8 @@ export function Pomodoro({
 
   const progress = view.phase === "idle" ? 0 : 1 - view.left / view.length;
   const color = view.phase === "break" ? "var(--break)" : "var(--brand)";
+  // The last ten seconds of a running phase: the number beats and a ring ripples out every second.
+  const urgent = timer.running && view.phase !== "idle" && !view.paused && view.left > 0 && view.left <= 10;
 
   return (
     <Card>
@@ -101,12 +104,33 @@ export function Pomodoro({
         }
       />
       <CardBody className="flex flex-col items-center gap-5">
-        <ProgressRing value={progress} size={196} stroke={10} color={color}>
-          <span className="font-mono text-4xl font-medium tracking-tight tabular-nums">{formatClock(view.left)}</span>
-          <span className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {view.phase === "idle" ? "Not started" : view.paused ? "Paused" : view.phase === "focus" ? "Stay focused" : "Take a breather"}
-          </span>
-        </ProgressRing>
+        <div className="relative">
+          {view.phase !== "idle" && (
+            // New key = new ripple: one when the phase changes, one per second in the final countdown.
+            <span
+              key={urgent ? `tick-${Math.ceil(view.left)}` : `phase-${view.phase}`}
+              aria-hidden
+              className="animate-ripple pointer-events-none absolute inset-0 rounded-full border-2"
+              style={{ borderColor: color }}
+            />
+          )}
+          {/* Re-mounting on a phase change makes the ring snap back and pop instead of unwinding. */}
+          <div key={view.phase} className="animate-phase">
+            <ProgressRing value={progress} size={196} stroke={10} color={color} dot={view.phase !== "idle"}>
+              <ClockText
+                value={formatClock(view.left)}
+                className={cx(
+                  "font-mono text-4xl font-medium tracking-tight tabular-nums",
+                  urgent && "animate-beat",
+                  view.paused && "animate-pulse motion-reduce:animate-none",
+                )}
+              />
+              <span className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {view.phase === "idle" ? "Not started" : view.paused ? "Paused" : view.phase === "focus" ? "Stay focused" : "Take a breather"}
+              </span>
+            </ProgressRing>
+          </div>
+        </div>
 
         {canControl ? (
           view.phase === "idle" ? (

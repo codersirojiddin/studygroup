@@ -3,6 +3,7 @@
 import { Pencil, Target } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
+import { CountUp } from "@/components/count-up";
 import { Button, Card, CardBody, CardHeader, Dialog, ErrorText, Field, Input, ProgressRing, cx } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useDismissals } from "@/lib/celebrations";
@@ -50,10 +51,12 @@ export function DailyGoal({
             reached && celebrated > celebratedAtMount && "animate-ring-burst",
           )}
         >
-          <ProgressRing value={pct} size={150} stroke={12}>
-            <span className="text-2xl font-semibold tabular-nums">{Math.round(pct * 100)}%</span>
-            <span className="text-xs text-muted-foreground">
-              {formatDuration(todaySeconds)} / {formatDuration(goal)}
+          <ProgressRing value={pct} size={150} stroke={12} animateIn>
+            <span className="text-2xl font-semibold tabular-nums">
+              <CountUp value={Math.round(pct * 100)} format={(n) => `${n}%`} />
+            </span>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              <CountUp value={todaySeconds} format={formatDuration} /> / {formatDuration(goal)}
             </span>
           </ProgressRing>
         </div>

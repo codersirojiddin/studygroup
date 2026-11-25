@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { openSocket } from "@/lib/api";
+import type { Reaction, ReactionName } from "@/lib/reactions";
 import type { ChatMessage, PresenceMember, Timer } from "@/lib/types";
 
 export type RoomEvent = "members_changed" | "room_updated" | "kicked" | "room_deleted";
@@ -12,6 +13,8 @@ export type RoomHandlers = {
   onTimer: (timer: Timer, serverNow: string) => void;
   onChat: (msg: ChatMessage) => void;
   onChatDeleted: (id: string) => void;
+  /** Someone cheered someone on; everyone in the room gets it. */
+  onReaction: (r: Reaction) => void;
   /** Called on every (re)connect, e.g. to reload anything missed while offline. */
   onConnected: () => void;
 };
@@ -22,9 +25,12 @@ export type RoomHandlers = {
  */
 export function useRoomRealtime(roomId: string, handlers: RoomHandlers) {
   const [presence, setPresence] = useState<PresenceMember[]>([]);
+  // How many times each user has newly appeared in the room (not counting who was already there).
+  const [arrivals, setArrivals] = useState<Record<string, number>>({});
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const known = useRef<Set<string> | null>(null);
   const h = useRef(handlers);
 
   useEffect(() => {
@@ -57,6 +63,7 @@ export function useRoomRealtime(roomId: string, handlers: RoomHandlers) {
       wsRef.current = ws;
       ws.onopen = () => {
         attempt = 0;
+        known.current = null; // the first list after (re)connecting is who was already here
         setConnected(true);
         ws.send(JSON.stringify({ type: "join", roomId }));
         h.current.onConnected();
@@ -64,8 +71,25 @@ export function useRoomRealtime(roomId: string, handlers: RoomHandlers) {
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         switch (msg.type) {
-          case "presence":
+          case "presence": {
+            const ids = new Set<string>(msg.members.map((m: PresenceMember) => m.userId));
+            const before = known.current;
+            known.current = ids;
+            if (before) {
+              const fresh = [...ids].filter((id) => !before.has(id));
+              if (fresh.length) {
+                setArrivals((a) => {
+                  const next = { ...a };
+                  for (const id of fresh) next[id] = (next[id] ?? 0) + 1;
+                  return next;
+                });
+              }
+            }
             setPresence(msg.members);
+            break;
+          }
+          case "reaction":
+            h.current.onReaction({ from: msg.from, fromName: msg.fromName, to: msg.to, emoji: msg.emoji });
             break;
           case "chat":
             h.current.onChat(msg);
@@ -115,5 +139,12 @@ export function useRoomRealtime(roomId: string, handlers: RoomHandlers) {
     return true;
   }, []);
 
-  return { presence, connected, error, sendChat };
+  const sendReaction = useCallback((to: string, emoji: ReactionName) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify({ type: "react", to, emoji }));
+    return true;
+  }, []);
+
+  return { presence, arrivals, connected, error, sendChat, sendReaction };
 }

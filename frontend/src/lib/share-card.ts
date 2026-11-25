@@ -48,6 +48,11 @@ export type ShareData = {
   days: ShareDay[];
   /** The site's address as printed on the card, e.g. "studygroup.live". */
   host: string;
+  /**
+   * Study time just added to today (the session that was just stopped). The goal ring then
+   * starts where it was before and a "+25m" chip flies into it. Used by the in-app celebration.
+   */
+  gainSeconds?: number;
 };
 
 export type Fonts = { sans: string; serif: string };
@@ -59,6 +64,8 @@ export type Frame = {
   clock: number;
   /** Confetti progress: 0 = none, around 0.35 = mid-air, 1 = gone. */
   confetti: number;
+  /** Draw only the scene (no logo, date or footer), for the in-app celebration. */
+  bare?: boolean;
 };
 
 /** When things happen, in milliseconds from the start of the animation. */
@@ -67,9 +74,16 @@ export type Plan = { enterMs: number; confettiAt: number; confettiMs: number };
 /** Streak card timeline (fractions of the entrance): the flame ignites here. */
 const IGNITE = 0.3;
 
-export function animationPlan(d: Pick<ShareData, "mode">): Plan {
+export function animationPlan(d: Pick<ShareData, "mode" | "gainSeconds">): Plan {
   if (d.mode === "streak") return { enterMs: 3800, confettiAt: IGNITE * 3800, confettiMs: 2600 };
+  // A chip flies into the ring first, so the goal is only reached late in the timeline.
+  if (d.mode === "today" && (d.gainSeconds ?? 0) > 0) return { enterMs: 2600, confettiAt: 2200, confettiMs: 2400 };
   return { enterMs: 1700, confettiAt: 700, confettiMs: 2200 };
+}
+
+/** The part of the 1080x1920 card that holds the scene, in card coordinates (see Frame.bare). */
+export function sceneBox(mode: ShareMode): { y: number; h: number } {
+  return mode === "streak" ? { y: 430, h: 1220 } : { y: 470, h: 960 };
 }
 
 /**
@@ -813,6 +827,13 @@ function heroToday(ctx: CanvasRenderingContext2D, d: ShareData, f: Fonts, t: num
   const target = d.goalSeconds > 0 ? clamp(d.todaySeconds / d.goalSeconds) : d.todaySeconds > 0 ? 1 : 0;
   const e = easeOut(seg(t, 0.12, 0.7));
 
+  // With a gain the ring first fills to where it stood, then a chip flies in and it fills the rest.
+  const gain = d.goalSeconds > 0 ? Math.min(Math.max(0, d.gainSeconds ?? 0), d.todaySeconds) : 0;
+  const shownSeconds =
+    gain > 0 ? (d.todaySeconds - gain) * easeOut(seg(t, 0.1, 0.42)) + gain * easeOut(seg(t, 0.5, 0.9)) : d.todaySeconds * e;
+  const prog = gain > 0 ? clamp(shownSeconds / d.goalSeconds) : target * e;
+  const startFrac = gain > 0 ? clamp((d.todaySeconds - gain) / d.goalSeconds) : 0;
+
   glow(ctx, cx, cy, R * 1.4, "63,208,154", 0.16);
   ctx.save();
   ctx.lineWidth = W;
@@ -822,7 +843,6 @@ function heroToday(ctx: CanvasRenderingContext2D, d: ShareData, f: Fonts, t: num
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
   ctx.stroke();
 
-  const prog = target * e;
   if (prog > 0.002) {
     const a0 = -Math.PI / 2;
     const a1 = a0 + Math.PI * 2 * prog;
@@ -845,7 +865,7 @@ function heroToday(ctx: CanvasRenderingContext2D, d: ShareData, f: Fonts, t: num
 
   enter(ctx, seg(t, 0.14, 0.5), 30, () => {
     text(ctx, "FOCUSED TODAY", cx, cy - 120, { size: 32, weight: 700, family: f.sans, color: C.mute, align: "center", spacing: 5 });
-    const shown = formatDuration(Math.floor(d.todaySeconds * e));
+    const shown = formatDuration(Math.floor(shownSeconds));
     const size = fitSize(ctx, shown, 470, { size: 150, weight: 700, family: f.sans, color: C.ink });
     text(ctx, shown, cx, cy + 50, { size, weight: 700, family: f.sans, color: C.ink, align: "center" });
     text(ctx, d.goalSeconds > 0 ? `of ${formatDuration(d.goalSeconds)} goal` : "no daily goal set", cx, cy + 130, {
@@ -857,12 +877,44 @@ function heroToday(ctx: CanvasRenderingContext2D, d: ShareData, f: Fonts, t: num
     });
   });
 
+  // The "+25m" chip: rises from under the ring and pours into the tip of the filled arc.
+  if (gain > 0) {
+    const tipAngle = -Math.PI / 2 + Math.PI * 2 * Math.max(startFrac, 0.03);
+    const tipX = cx + Math.cos(tipAngle) * R;
+    const tipY = cy + Math.sin(tipAngle) * R;
+    const p = seg(t, 0.34, 0.56);
+    if (p > 0 && p < 1) {
+      const k = p * p * (3 - 2 * p);
+      const x = cx + (tipX - cx) * k + Math.sin(Math.PI * k) * 110 * (tipX < cx ? 1 : -1);
+      const y = 1300 + (tipY - 1300) * k;
+      const label = `+${formatDuration(gain)}`;
+      const style: TextStyle = { size: 52, weight: 700, family: f.sans, color: "#0A1F17", align: "center" };
+      const w = measure(ctx, label, style) + 70;
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 6) * (1 - seg(p, 0.8, 1));
+      ctx.translate(x, y);
+      const sc = 1 - 0.45 * k;
+      ctx.scale(sc, sc);
+      ctx.shadowColor = "rgba(63,208,154,0.7)";
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = C.brand;
+      roundRect(ctx, -w / 2, -42, w, 84, 42);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      text(ctx, label, 0, 18, style);
+      ctx.restore();
+    }
+    // A pulse of light where it lands.
+    const land = seg(t, 0.52, 0.7);
+    if (land > 0 && land < 1) glow(ctx, tipX, tipY, 360, "63,208,154", 0.5 * Math.sin(Math.PI * land));
+  }
+
   // Goal badge under the ring.
   if (d.goalSeconds > 0) {
-    const p = seg(t, 0.55, 0.8);
+    const p = gain > 0 ? seg(t, 0.86, 0.98) : seg(t, 0.55, 0.8);
     enter(ctx, p, 30, () => {
       const done = d.todaySeconds >= d.goalSeconds;
-      const label = done ? "Daily goal reached" : `${Math.round(target * 100 * e)}% of daily goal`;
+      const label = done ? "Daily goal reached" : `${Math.round(prog * 100)}% of daily goal`;
       const style: TextStyle = { size: 38, weight: 700, family: f.sans, color: done ? "#0A1F17" : C.ink };
       const w = measure(ctx, label, style) + (done ? 140 : 90);
       const x = cx - w / 2;
@@ -1237,7 +1289,7 @@ function footer(ctx: CanvasRenderingContext2D, d: ShareData, f: Fonts, p: number
  * drawing to a smaller canvas.
  */
 export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData, fonts: Fonts, frame: Frame) {
-  const { t, clock, confetti } = frame;
+  const { t, clock, confetti, bare = false } = frame;
   const streakMode = d.mode === "streak";
   ctx.save();
   ctx.lineCap = "butt";
@@ -1247,13 +1299,15 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData, fonts
   // Behind the text, so the date and numbers stay readable while confetti flies.
   if (streakMode) streakBackdrop(ctx, d, t, clock);
   confettiBurst(ctx, 540, d.mode === "today" ? 900 : streakMode ? 760 : 700, confetti);
-  header(ctx, d, fonts, seg(t, 0, 0.2));
-  headline(ctx, d, fonts, seg(t, 0.05, 0.28));
+  if (!bare) {
+    header(ctx, d, fonts, seg(t, 0, 0.2));
+    headline(ctx, d, fonts, seg(t, 0.05, 0.28));
+  }
   if (d.mode === "today") heroToday(ctx, d, fonts, t, clock);
   else if (streakMode) heroStreak(ctx, d, fonts, t, clock);
   else heroWeek(ctx, d, fonts, t, clock);
-  if (!streakMode) chips(ctx, d, fonts, t, clock);
-  footer(ctx, d, fonts, seg(t, 0.75, 1));
+  if (!streakMode && !bare) chips(ctx, d, fonts, t, clock);
+  if (!bare) footer(ctx, d, fonts, seg(t, 0.75, 1));
   // One glint across the finished card.
   const settled = animationPlan(d).enterMs / 1000;
   shine(ctx, seg(clock, settled + 0.15, settled + 1.3));

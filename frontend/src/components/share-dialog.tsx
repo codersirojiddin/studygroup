@@ -15,6 +15,7 @@ import {
   loadFonts,
   readFonts,
   renderShareBlob,
+  sceneBox,
   siteUrl,
   type Fonts,
   type ShareData,
@@ -23,18 +24,51 @@ import {
 import type { Me, Stats } from "@/lib/types";
 
 const PREVIEW_W = 648; // preview canvas pixels (the card is 1080 wide)
-const PREVIEW_H = Math.round((PREVIEW_W * CARD_H) / CARD_W);
 const previewSize = "h-[min(56vh,600px)]";
 
-/** The animated card. Entrance, count-ups, flame flicker and confetti all come from drawShareCard. */
-function ShareCanvas({ data, fonts, replay }: { data: ShareData; fonts: Fonts; replay: number }) {
+/** Loads the card fonts once; null until they are ready, so text never pops in late. */
+export function useCardFonts(): Fonts | null {
+  const [fonts, setFonts] = useState<Fonts | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const f = readFonts();
+    loadFonts(f).then(() => !cancelled && setFonts(f));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return fonts;
+}
+
+const BARE_W = 720; // canvas pixels for the in-app celebration scene
+
+/**
+ * The animated card. Entrance, count-ups, flame flicker and confetti all come from drawShareCard.
+ * With `bare` it shows only the scene (no logo, date or footer), cropped to fit: that is what the
+ * celebration after a session uses.
+ */
+export function ShareCanvas({
+  data,
+  fonts,
+  replay = 0,
+  bare = false,
+}: {
+  data: ShareData;
+  fonts: Fonts;
+  replay?: number;
+  bare?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const box = bare ? sceneBox(data.mode) : { y: 0, h: CARD_H };
+  const width = bare ? BARE_W : PREVIEW_W;
+  const height = Math.round((width * box.h) / CARD_W);
 
   useEffect(() => {
     const canvas = ref.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     const scale = canvas.width / CARD_W;
+    const top = bare ? sceneBox(data.mode).y : 0;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const celebrate = isCelebration(data);
     const plan = animationPlan(data);
@@ -55,23 +89,28 @@ function ShareCanvas({ data, fonts, replay }: { data: ShareData; fonts: Fonts; r
           : reduceMotion
             ? 0.34
             : Math.min(1, Math.max(0, (elapsed - plan.confettiAt) / plan.confettiMs));
-        ctx.setTransform(scale, 0, 0, scale, 0, 0);
-        drawShareCard(ctx, data, fonts, { t, clock: reduceMotion ? 0.35 : elapsed / 1000, confetti });
+        ctx.setTransform(scale, 0, 0, scale, 0, -top * scale);
+        drawShareCard(ctx, data, fonts, { t, clock: reduceMotion ? 0.35 : elapsed / 1000, confetti, bare });
       }
       if (!reduceMotion) raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [data, fonts, replay]);
+  }, [data, fonts, replay, bare]);
 
   return (
     <canvas
       ref={ref}
-      width={PREVIEW_W}
-      height={PREVIEW_H}
+      width={width}
+      height={height}
       role="img"
-      aria-label="Preview of your shareable progress card"
-      className={`${previewSize} aspect-[9/16] w-auto rounded-2xl shadow-2xl ring-1 ring-black/10`}
+      aria-label={bare ? "Your progress" : "Preview of your shareable progress card"}
+      style={bare ? { aspectRatio: `${CARD_W} / ${box.h}` } : undefined}
+      className={
+        bare
+          ? "h-auto w-[min(86vw,440px)] rounded-3xl shadow-2xl ring-1 ring-white/10"
+          : `${previewSize} aspect-[9/16] w-auto rounded-2xl shadow-2xl ring-1 ring-black/10`
+      }
     />
   );
 }
@@ -135,23 +174,14 @@ function TiltFrame({ children }: { children: ReactNode }) {
   );
 }
 
-function ShareBody({ stats, me }: { stats: Stats; me: Me }) {
-  const [mode, setMode] = useState<ShareMode>("today");
-  const [fonts, setFonts] = useState<Fonts | null>(null);
+function ShareBody({ stats, me, initialMode }: { stats: Stats; me: Me; initialMode: ShareMode }) {
+  const [mode, setMode] = useState<ShareMode>(initialMode);
+  const fonts = useCardFonts();
   const [made, setMade] = useState<{ mode: ShareMode; blob: Blob } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [replay, setReplay] = useState(0);
 
   const data = useMemo(() => buildShareData(mode, stats, me), [mode, stats, me]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const f = readFonts();
-    loadFonts(f).then(() => !cancelled && setFonts(f));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Pre-render the PNG so Share/Save work instantly (and keep the click's user gesture).
   useEffect(() => {
@@ -282,11 +312,14 @@ export function ShareDialog({
   onClose,
   stats,
   me,
+  initialMode = "today",
 }: {
   open: boolean;
   onClose: () => void;
   stats: Stats;
   me: Me;
+  /** The tab shown first. */
+  initialMode?: ShareMode;
 }) {
   return (
     <Dialog
@@ -296,7 +329,7 @@ export function ShareDialog({
       description="Save the picture or send it straight to your friends."
       className="max-w-md"
     >
-      <ShareBody stats={stats} me={me} />
+      <ShareBody stats={stats} me={me} initialMode={initialMode} />
     </Dialog>
   );
 }

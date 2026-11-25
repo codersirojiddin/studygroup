@@ -3,8 +3,9 @@
 import { Pencil, Target } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
-import { Button, Card, CardBody, CardHeader, Dialog, ErrorText, Field, Input, ProgressRing } from "@/components/ui";
+import { Button, Card, CardBody, CardHeader, Dialog, ErrorText, Field, Input, ProgressRing, cx } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useDismissals } from "@/lib/celebrations";
 import { formatDuration } from "@/lib/format";
 import type { Me } from "@/lib/types";
 
@@ -21,6 +22,9 @@ export function DailyGoal({
   onGoalChange: (me: Me) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  // The ring pulses once when the "goal reached" celebration closes (not on every visit).
+  const celebrated = useDismissals("goal");
+  const [celebratedAtMount] = useState(celebrated);
   const goal = goalMinutes * 60;
   const pct = Math.min(1, todaySeconds / goal);
   const reached = todaySeconds >= goal;
@@ -38,12 +42,21 @@ export function DailyGoal({
         }
       />
       <CardBody className="flex justify-center">
-        <ProgressRing value={pct} size={150} stroke={12}>
-          <span className="text-2xl font-semibold tabular-nums">{Math.round(pct * 100)}%</span>
-          <span className="text-xs text-muted-foreground">
-            {formatDuration(todaySeconds)} / {formatDuration(goal)}
-          </span>
-        </ProgressRing>
+        <div
+          key={celebrated > celebratedAtMount ? celebrated : "idle"}
+          className={cx(
+            "rounded-full transition-[filter] duration-700",
+            reached && "drop-shadow-[0_0_8px_var(--brand)]",
+            reached && celebrated > celebratedAtMount && "animate-ring-burst",
+          )}
+        >
+          <ProgressRing value={pct} size={150} stroke={12}>
+            <span className="text-2xl font-semibold tabular-nums">{Math.round(pct * 100)}%</span>
+            <span className="text-xs text-muted-foreground">
+              {formatDuration(todaySeconds)} / {formatDuration(goal)}
+            </span>
+          </ProgressRing>
+        </div>
       </CardBody>
       <GoalDialog open={editing} onClose={() => setEditing(false)} current={goalMinutes} onSaved={onGoalChange} />
     </Card>

@@ -1,27 +1,14 @@
 "use client";
 
-import {
-  ArrowRight,
-  BarChart3,
-  CalendarDays,
-  Clock,
-  Compass,
-  Flame,
-  History,
-  KeyRound,
-  Lock,
-  Plus,
-  Share2,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { ArrowRight, Compass, History, KeyRound, Lock, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { AppShell, PageHeader } from "@/components/app-header";
 import { DailyGoal } from "@/components/daily-goal";
 import { ShareDialog } from "@/components/share-dialog";
+import { StatsCard } from "@/components/stats-card";
 import { StudyTimer } from "@/components/study-timer";
 import { Todos } from "@/components/todos";
 import {
@@ -42,7 +29,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { api } from "@/lib/api";
-import { formatDuration, greeting, shortWeekday } from "@/lib/format";
+import { formatDuration, greeting } from "@/lib/format";
 import { loadStats } from "@/lib/progress-store";
 import type { Me, Room, Session, Stats } from "@/lib/types";
 import { useNow } from "@/lib/use-now";
@@ -171,85 +158,6 @@ export default function Dashboard() {
       <CreateRoomDialog open={dialog === "create"} onClose={() => setDialog(null)} />
       <JoinDialog open={dialog === "join"} onClose={() => setDialog(null)} />
     </AppShell>
-  );
-}
-
-function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground [&_svg]:size-3.5">
-        {icon}
-        {label}
-      </div>
-      <div className="text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
-    </div>
-  );
-}
-
-function StatsCard({
-  stats,
-  goalMinutes,
-  onShare,
-  className,
-}: {
-  stats: Stats | null;
-  goalMinutes?: number;
-  onShare?: () => void;
-  className?: string;
-}) {
-  if (!stats) return <Skeleton className={`h-64 ${className}`} />;
-  const goal = (goalMinutes ?? 0) * 60;
-  const max = Math.max(goal, 1, ...stats.last7Days.map((d) => d.seconds));
-  return (
-    <Card className={className}>
-      <CardHeader
-        icon={<BarChart3 />}
-        title="Your progress"
-        description="Last 7 days"
-        action={
-          onShare && (
-            <Button variant="secondary" size="sm" onClick={onShare} aria-label="Share your progress">
-              <Share2 /> <span className="hidden sm:inline">Share</span>
-            </Button>
-          )
-        }
-      />
-      <CardBody className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat icon={<Clock />} label="Today" value={formatDuration(stats.todaySeconds)} />
-          <Stat icon={<CalendarDays />} label="This week" value={formatDuration(stats.weekSeconds)} />
-          <Stat icon={<Flame />} label="Streak" value={`${stats.streakDays} day${stats.streakDays === 1 ? "" : "s"}`} />
-          <Stat icon={<Trophy />} label="All time" value={formatDuration(stats.totalSeconds)} />
-        </div>
-        <div className="relative">
-          {goal > 0 && (
-            <div
-              className="pointer-events-none absolute inset-x-0 border-t border-dashed border-brand/60"
-              style={{ bottom: `${24 + (goal / max) * 112}px` }}
-            >
-              <span className="absolute -top-5 right-0 text-[10px] font-medium text-brand">daily goal</span>
-            </div>
-          )}
-          <div className="flex h-[136px] items-end gap-2 sm:gap-3" aria-label="Study time, last 7 days">
-            {stats.last7Days.map((d, i) => {
-              const today = i === stats.last7Days.length - 1;
-              return (
-                <div key={d.date} className="flex flex-1 flex-col items-center gap-1.5">
-                  <div
-                    className={`w-full max-w-12 rounded-md transition-all ${
-                      goal > 0 && d.seconds >= goal ? "bg-brand" : today ? "bg-brand/70" : "bg-brand/35"
-                    }`}
-                    style={{ height: `${Math.max(4, (d.seconds / max) * 112)}px` }}
-                    title={`${d.date}: ${formatDuration(d.seconds)}`}
-                  />
-                  <span className={`text-xs ${today ? "font-semibold" : "text-muted-foreground"}`}>{shortWeekday(d.date)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </CardBody>
-    </Card>
   );
 }
 

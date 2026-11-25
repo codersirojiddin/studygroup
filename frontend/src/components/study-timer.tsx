@@ -4,6 +4,7 @@ import { Play, Square, Timer as TimerIcon } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
+import { ClockText } from "@/components/clock-text";
 import { Badge, Button, Card, CardBody, CardHeader, ErrorText, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import { announceSessionEnd } from "@/lib/celebrations";
@@ -67,17 +68,30 @@ export function StudyTimer({
         description={roomId ? "Counts toward your stats and this room's leaderboard" : "Study on your own, outside any room"}
         action={
           active && !elsewhere ? (
-            <Badge tone="brand">{active.source === "pomodoro" ? "● Auto · Pomodoro" : "● Recording"}</Badge>
+            <Badge tone="brand">
+              <span className="relative flex size-2" aria-hidden>
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand opacity-60 motion-reduce:animate-none" />
+                <span className="relative inline-flex size-2 rounded-full bg-brand" />
+              </span>
+              {active.source === "pomodoro" ? "Auto · Pomodoro" : "Recording"}
+            </Badge>
           ) : undefined
         }
       />
       <CardBody className="flex flex-col gap-4">
         {active ? (
           <>
-            <div>
-              <div className="font-mono text-4xl font-medium tracking-tight tabular-nums">
-                {formatClock(now ? secondsSince(active.startedAt, now) : active.seconds)}
-              </div>
+            <div className="animate-pop relative isolate">
+              {!elsewhere && (
+                <span
+                  aria-hidden
+                  className="animate-breathe pointer-events-none absolute -inset-x-3 -inset-y-2 -z-10 rounded-3xl bg-brand/15 blur-xl"
+                />
+              )}
+              <ClockText
+                className="font-mono text-4xl font-medium tracking-tight tabular-nums"
+                value={formatClock(now ? secondsSince(active.startedAt, now) : active.seconds)}
+              />
               <p className="mt-1 truncate text-sm text-muted-foreground">
                 {active.topic || (active.source === "pomodoro" ? "Counting the room's focus time" : "No topic")}
                 {elsewhere && (

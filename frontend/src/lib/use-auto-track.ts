@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
+import { announceSessionEnd } from "@/lib/celebrations";
 import { timerView } from "@/lib/pomodoro";
 import type { Session, Timer } from "@/lib/types";
 import { useNow } from "@/lib/use-now";
@@ -96,7 +97,8 @@ export function useAutoTrack({
   useEffect(() => {
     if (!ownsActive || focusKey) return;
     trackedKey.current = null;
-    api("/api/sessions/stop?source=pomodoro", { method: "POST" })
+    api<Session>("/api/sessions/stop?source=pomodoro", { method: "POST" })
+      .then((stopped) => void announceSessionEnd(stopped))
       .catch(() => {}) // the server may have ended it already
       .finally(() => {
         setActive(null);

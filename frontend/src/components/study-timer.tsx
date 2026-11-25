@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 
 import { Badge, Button, Card, CardBody, CardHeader, ErrorText, Input } from "@/components/ui";
 import { api } from "@/lib/api";
+import { announceSessionEnd } from "@/lib/celebrations";
 import { formatClock, secondsSince } from "@/lib/format";
 import type { Session } from "@/lib/types";
 import { useNow } from "@/lib/use-now";
@@ -48,8 +49,9 @@ export function StudyTimer({
     setBusy(true);
     setError(null);
     try {
-      await api<Session>("/api/sessions/stop", { method: "POST" });
+      const stopped = await api<Session>("/api/sessions/stop", { method: "POST" });
       onChange(null);
+      void announceSessionEnd(stopped);
     } catch (err) {
       setError((err as Error).message);
     } finally {

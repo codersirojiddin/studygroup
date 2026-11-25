@@ -42,7 +42,8 @@ import {
   Textarea,
 } from "@/components/ui";
 import { api } from "@/lib/api";
-import { formatDuration, greeting, shortWeekday, timeZone } from "@/lib/format";
+import { formatDuration, greeting, shortWeekday } from "@/lib/format";
+import { loadStats } from "@/lib/progress-store";
 import type { Me, Room, Session, Stats } from "@/lib/types";
 import { useNow } from "@/lib/use-now";
 
@@ -59,11 +60,12 @@ export default function Dashboard() {
   const [shareOpen, setShareOpen] = useState(false);
   const now = useNow(false);
 
-  const load = useCallback(async () => {
+  // `fresh` skips the shared stats response: pass it after something changed (a stopped session).
+  const load = useCallback(async (fresh = false) => {
     try {
       const [r, s, a, user] = await Promise.all([
         api<RoomLists>("/api/rooms"),
-        api<{ stats: Stats; recent: Session[] }>(`/api/sessions/stats?tz=${encodeURIComponent(timeZone())}`),
+        loadStats(fresh),
         api<Session | null>("/api/sessions/active"),
         api<Me>("/api/me"),
       ]);
@@ -157,7 +159,7 @@ export default function Dashboard() {
           active={active}
           onChange={(s) => {
             setActive(s);
-            if (!s) load();
+            if (!s) load(true);
           }}
         />
       </div>

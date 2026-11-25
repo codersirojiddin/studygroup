@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { UserButton, useTheme } from "@neondatabase/neon-js/auth/react/ui";
 
+import { CelebrationHost } from "@/components/celebration-host";
+import { StreakBadge } from "@/components/streak-badge";
 import { Button, cx } from "@/components/ui";
 import { UserSearch } from "@/components/user-search";
 
@@ -60,6 +62,7 @@ export function AppHeader() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1">
+          <StreakBadge />
           <UserSearch />
           <ThemeToggle />
           <UserButton size="icon" />
@@ -111,6 +114,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <AppHeader />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-6 md:py-8">{children}</main>
+      <CelebrationHost />
     </>
   );
 }

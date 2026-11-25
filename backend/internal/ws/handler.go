@@ -38,10 +38,13 @@ func (h *Handler) IssueTicket(w http.ResponseWriter, r *http.Request) {
 //
 //	{"type":"join","roomId":"..."}  {"type":"leave"}
 //	{"type":"chat","text":"..."}    {"type":"ping"}
+//	{"type":"react","to":"<userId>","emoji":"fire"}
 type incoming struct {
 	Type   string `json:"type"`
 	RoomID string `json:"roomId"`
 	Text   string `json:"text"`
+	To     string `json:"to"`
+	Emoji  string `json:"emoji"`
 }
 
 const (
@@ -105,6 +108,14 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 			h.Hub.Leave(client)
 		case "chat":
 			if err := h.Hub.Chat(ctx, client, msg.Text); err != nil {
+				sendError(client, publicError(err))
+			}
+		case "react":
+			if !httpx.IsUUID(msg.To) {
+				sendError(client, "invalid user")
+				continue
+			}
+			if err := h.Hub.React(client, msg.To, msg.Emoji); err != nil {
 				sendError(client, publicError(err))
 			}
 		case "ping":

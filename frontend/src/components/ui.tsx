@@ -247,13 +247,17 @@ export function Avatar({
         {initials(name)}
       </span>
       {status && (
-        <span
-          className={cx(
-            "absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2 border-card",
-            status === "studying" ? "bg-brand" : status === "online" ? "bg-break" : "bg-muted-foreground/40",
+        <span className="absolute -right-0.5 -bottom-0.5 size-3" title={status}>
+          {status === "studying" && (
+            <span className="absolute inset-0 animate-ping rounded-full bg-brand opacity-60 motion-reduce:animate-none" aria-hidden />
           )}
-          title={status}
-        />
+          <span
+            className={cx(
+              "absolute inset-0 rounded-full border-2 border-card",
+              status === "studying" ? "bg-brand" : status === "online" ? "bg-break" : "bg-muted-foreground/40",
+            )}
+          />
+        </span>
       )}
     </span>
   );

@@ -52,8 +52,9 @@ type Client struct {
 	Send        chan []byte
 	Close       func() // closes the underlying connection
 
-	room     string // guarded by Hub.mu
-	lastChat time.Time
+	room      string // guarded by Hub.mu
+	lastChat  time.Time
+	lastReact time.Time
 }
 
 const sendBuffer = 64
@@ -257,6 +258,39 @@ func (h *Hub) Chat(ctx context.Context, c *Client, text string) error {
 	return nil
 }
 
+// Reactions are the only emoji a client may send. They are names, not free text, so a
+// reaction can never carry a message; the client maps each name to its emoji.
+var reactions = map[string]bool{"fire": true, "clap": true, "heart": true, "muscle": true, "rocket": true}
+
+const reactInterval = 200 * time.Millisecond
+
+// React sends a short, unsaved cheer from the client to another user in the same room. Every
+// client in the room gets it, so everyone can watch the emoji float up over the receiver.
+func (h *Hub) React(c *Client, to, emoji string) error {
+	if !reactions[emoji] {
+		return errBadReaction
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	roomID := c.room
+	now := time.Now()
+	switch {
+	case roomID == "":
+		return errNoRoom
+	case to == c.UserID:
+		return errSelfReaction
+	case now.Sub(c.lastReact) < reactInterval:
+		return errTooFast
+	case !h.userInRoomLocked(roomID, to):
+		return errNotHere
+	}
+	c.lastReact = now
+	h.broadcastLocked(roomID, encode(map[string]any{
+		"type": "reaction", "roomId": roomID, "from": c.UserID, "fromName": c.DisplayName, "to": to, "emoji": emoji,
+	}))
+	return nil
+}
+
 // ChatDeleted tells the room to hide a removed message.
 func (h *Hub) ChatDeleted(roomID, msgID string) {
 	h.mu.Lock()
@@ -359,4 +393,8 @@ const (
 	errNoRoom    hubError = "join a room first"
 	errBadChat   hubError = "message must be 1-500 characters"
 	errTooFast   hubError = "you are sending messages too fast"
+
+	errBadReaction  hubError = "unknown reaction"
+	errSelfReaction hubError = "you can't react to yourself"
+	errNotHere      hubError = "that person isn't in the room right now"
 )

@@ -44,8 +44,9 @@ All `/api/*` routes need `Authorization: Bearer <Neon Auth JWT>`.
 
 Sessions are capped at 12 hours so a forgotten timer can't skew stats.
 
-WebSocket (`/ws?ticket=…`) client messages: `join {roomId}`, `leave`, `chat {text}`, `ping`.
-The server sends `presence`, `chat`, `chat_deleted`, `timer`, `members_changed`, `room_updated`, `kicked`, `left`, `room_deleted` and `error`.
+WebSocket (`/ws?ticket=…`) client messages: `join {roomId}`, `leave`, `chat {text}`, `react {to, emoji}`, `ping`.
+The server sends `presence`, `chat`, `chat_deleted`, `reaction`, `timer`, `members_changed`, `room_updated`, `kicked`, `left`, `room_deleted` and `error`.
+A reaction is a short cheer for someone else in the same room. `emoji` is one of `fire`, `clap`, `heart`, `muscle`, `rocket` (names, never free text). It is not saved: the server checks that the receiver is in the room, allows one every 200 ms, and broadcasts `{type:"reaction", from, fromName, to, emoji}` to the whole room.
 Chat messages are stored in `chat_messages`.
 
 ## Tests

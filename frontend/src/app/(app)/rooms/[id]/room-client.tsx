@@ -48,6 +48,7 @@ import {
   Textarea,
   useConfirm,
 } from "@/components/ui";
+import { publishActive, useActiveSession } from "@/lib/active-session-store";
 import { api, ApiError } from "@/lib/api";
 import { formatClock, secondsSince } from "@/lib/format";
 import type { ChatMessage, Me, Member, PresenceMember, Role, Room, Session, Timer } from "@/lib/types";
@@ -66,7 +67,8 @@ export function RoomClient({ id }: { id: string }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<Me | null>(null);
-  const [active, setActive] = useState<Session | null>(null);
+  // Shared with the sidebar's mini timer.
+  const active = useActiveSession();
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [clock, setClock] = useState<TimerClock | null>(null);
@@ -86,7 +88,7 @@ export function RoomClient({ id }: { id: string }) {
       setMembers(detail.members);
       if (detail.timer) applyTimer(detail.timer, detail.serverNow);
       setMe(user);
-      setActive(session);
+      publishActive(session);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setNotFound(true);
       else setError((e as Error).message);
@@ -128,7 +130,7 @@ export function RoomClient({ id }: { id: string }) {
           members={members}
           me={me}
           active={active}
-          setActive={setActive}
+          setActive={publishActive}
           reload={load}
           clock={clock}
           applyTimer={applyTimer}

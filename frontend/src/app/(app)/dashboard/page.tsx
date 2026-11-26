@@ -3,7 +3,7 @@
 import { ArrowRight, Compass, History, KeyRound, Lock, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AppShell, PageHeader } from "@/components/app-header";
 import { DailyGoal } from "@/components/daily-goal";
@@ -28,6 +28,7 @@ import {
   Tabs,
   Textarea,
 } from "@/components/ui";
+import { publishActive, useActiveSession } from "@/lib/active-session-store";
 import { api } from "@/lib/api";
 import { formatDuration, greeting } from "@/lib/format";
 import { loadStats } from "@/lib/progress-store";
@@ -40,7 +41,8 @@ export default function Dashboard() {
   const [rooms, setRooms] = useState<RoomLists | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Session[]>([]);
-  const [active, setActive] = useState<Session | null>(null);
+  // Shared with the sidebar's mini timer, so starting or stopping anywhere updates both.
+  const active = useActiveSession();
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<"create" | "join" | null>(null);
@@ -60,7 +62,7 @@ export default function Dashboard() {
       setRooms(r);
       setStats(s.stats);
       setRecent(s.recent);
-      setActive(a);
+      publishActive(a);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -71,6 +73,14 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load
     load();
   }, [load]);
+
+  // A session that just ended (here or from the sidebar) changes today's numbers: load them fresh.
+  const hadActive = useRef(active);
+  useEffect(() => {
+    const ended = hadActive.current !== null && active === null;
+    hadActive.current = active;
+    if (ended) load(true);
+  }, [active, load]);
 
   const date = now ? new Date(now) : null;
 
@@ -144,10 +154,7 @@ export default function Dashboard() {
         <Todos className="lg:col-span-2" />
         <StudyTimer
           active={active}
-          onChange={(s) => {
-            setActive(s);
-            if (!s) load(true);
-          }}
+          onChange={publishActive}
         />
       </div>
 

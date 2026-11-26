@@ -6,7 +6,9 @@ import type { ReactNode } from "react";
 import { NeonAuthUIProvider } from "@neondatabase/neon-js/auth/react/ui";
 
 import { authClient } from "@/lib/auth/client";
+import { publishActive } from "@/lib/active-session-store";
 import { clearAccessToken } from "@/lib/api";
+import { resetRooms } from "@/lib/rooms-store";
 
 // Turn Google on only after it is configured in the Neon Console
 // (Auth > OAuth providers); otherwise the button would lead to an error.
@@ -22,6 +24,8 @@ export function Providers({ children }: { children: ReactNode }) {
       replace={router.replace}
       onSessionChange={() => {
         clearAccessToken();
+        publishActive(null);
+        resetRooms();
         router.refresh();
       }}
       Link={Link}

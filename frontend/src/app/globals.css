@@ -514,3 +514,12 @@ dialog[open]::backdrop {
     animation: none;
   }
 }
+/* Sobo faqat oyna yetarlicha baland bo'lganda ko'rinadi, aks holda sidebar ro'yxatini siqmaydi */
+.sobo-slot {
+  display: none;
+}
+@media (min-height: 720px) {
+  .sobo-slot {
+    display: flex;
+  }
+}

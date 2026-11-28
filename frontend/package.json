@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@neondatabase/neon-js": "^0.9.0-beta",
+    "@rive-app/react-canvas": "^4.41.0",
     "lucide-react": "^1.61.0",
     "next": "16.4.4",
     "react": "19.3.0",

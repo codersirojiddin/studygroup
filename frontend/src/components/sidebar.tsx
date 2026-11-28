@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { ClockText } from "@/components/clock-text";
+import SoboMascot from "@/components/SoboMascot";
 import { Button, Skeleton, cx } from "@/components/ui";
 import { publishActive, useActiveSession } from "@/lib/active-session-store";
 import { api } from "@/lib/api";
@@ -314,6 +315,13 @@ export function SidebarBody({
             })
           )}
         </div>
+
+        {/* Sobo mascot: lives in the scrollable zone, so it can never squeeze the timer or the Collapse button. */}
+                {!collapsed && (
+          <div className="sobo-slot mt-6 px-3">
+            <SoboMascot className="aspect-square w-full" />
+          </div>
+        )}
       </div>
 
       <div className="shrink-0 border-t pt-3 pb-3">
